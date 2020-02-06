@@ -41,7 +41,6 @@ const indexProc = (req, res, next) => {
         { 'rowField': 'option_text', 'tblHeader': 'Option Text', 'show':false }
     ];
 
-
     let sql = "SELECT A.*, C.`category` " + 
         "FROM `%s` A " + 
         "LEFT JOIN `%s` C ON A.`category_id` = C.`id` ";
@@ -68,49 +67,120 @@ const indexProc = (req, res, next) => {
                 sql =  sprintfJs.sprintf("SELECT `id`, `category` FROM `%s`", config.dbTblName.categories);
                 dbConn.query(sql, null, (error, results1, fields) => {
                     if (error) {
-                        res.status(200).send({
+                        return res.status(200).send({
                             result: 'error',
                             message: 'Unknown error',
                             error: error,
                             data: [],
                         });
-                    } else {
+                    }
     
-                        results.forEach(element => {
-                            if (element['created_at']) {
-                                element['created_at'] = common.getDays(element['created_at']);
-                            }
-                            if (element['updated_at']) {
-                                element['updated_at'] = common.getDays(element['updated_at']);
-                            } 
-                            if (element['is_allcategories'] == 0) {
-                                element['category'] = "All categories";
-                                element['category_id'] = [];
-                            } else {
-                                const ids = element['category_id'].split(",");
-                                let arrCate = [];
-                                results1.map((e) => {
-                                    if (ids.indexOf(e['id'] + '') > -1) {
-                                        arrCate.push(e['category']);
+                    results.forEach(element => {
+                        if (element['created_at']) {
+                            element['created_at'] = common.getDays(element['created_at']);
+                        }
+                        if (element['updated_at']) {
+                            element['updated_at'] = common.getDays(element['updated_at']);
+                        } 
+                        if (element['is_allcategories'] == 0) {
+                            element['category'] = "All categories";
+                            element['category_id'] = [];
+                        } else {
+                            const ids = element['category_id'].split(",");
+                            let arrCate = [];
+                            results1.map((e) => {
+                                if (ids.indexOf(e['id'] + '') > -1) {
+                                    arrCate.push(e['category']);
+                                }
+                            });
+
+                            element['category'] = arrCate.join(", ");
+                            element['category_id'] = ids;
+                            
+                        }
+                    });
+
+                    if (params.id && params.id != 0 && results.length == 1 && results[0]['field_type'] == 'table') {
+                        // create table structure
+                        let displayColumns = results[0]['display_columns'];
+                        if (displayColumns) {
+                            displayColumns = displayColumns.split(",");
+                        } else {
+                            displayColumns = [];
+                        }
+                        if (displayColumns.length > 2) {
+                            
+                            sql = sprintfJs.sprintf("SELECT * FROM `%s` WHERE `field_id` = '%s';", 
+                                config.dbTblName.field_table_columns, params.id);
+                            dbConn.query(sql, null, (error, results2, fields) => {
+                                if (error) {
+                                    return res.status(200).send({
+                                        result: 'error',
+                                        message: 'Unknown error',
+                                        error: error,
+                                        data: [],
+                                    });
+                                    
+                                }
+                                let columnData = {};
+                                for (let i = 0; i < results2.length; i++) {
+                                    let row1 = results2[i];
+                                    columnData[row1['col']] = (({ title, type, is_editable }) => ({ title, type, is_editable }))(row1);
+                                }
+                                sql = sprintfJs.sprintf("SELECT * FROM `%s` WHERE `field_id` = '%s' ORDER BY `row`", 
+                                    config.dbTblName.field_table_data, params.id);
+                                dbConn.query(sql, null, (error, results3, fields) => {
+                                    if (error) {
+                                        return res.status(200).send({
+                                            result: 'error',
+                                            message: 'Unknown error',
+                                            error: error,
+                                            data: [],
+                                        });
+                                    } 
+                                    let rowData = [];
+                                    if (results3.length > 0) {
+                                        let row0 = results3[0]['row'];
+                                        let record = {};
+                                        results3.map((ele) => {
+                                            if (row0 != ele['row']) {
+                                                row0 = ele['row'];
+                                                rowData.push(record);
+                                                record = {}
+                                            }
+                                            record[ele['col']] = ele['val'];
+                                        });
+                                        rowData.push(record);
+                                        return res.status(200).send({
+                                            result: 'success',
+                                            data: results,
+                                            displayColumns: displayColumns,
+                                            columnData: columnData,
+                                            rowData: rowData
+                                        });
+                                    } else {
+                                        return res.status(200).send({
+                                            result: 'success',
+                                            data: results
+                                        });
                                     }
                                 });
-    
-                                element['category'] = arrCate.join(", ");
-                                element['category_id'] = ids;
-                                
-                            }
-                        });
-    
-                        // create table structure
-                        res.status(200).send({
+                            });
+                        } else {
+                            return res.status(200).send({
+                                result: 'success',
+                                data: results
+                            });
+                        }
+                    } else {
+                        return res.status(200).send({
                             result: 'success',
                             data: results,
                             columns: columns
                         });
                     }
+                    
                 });
-    
-    
             }
         });
     } catch (err) {
@@ -119,45 +189,98 @@ const indexProc = (req, res, next) => {
             message: 'Unknown error',
             error: err,
         });
-    }
-
-    
+    }   
 }
 
-const addProc = (req, res, next) => {
+const addProc = async (req, res, next) => {
+    const method = req.method;
     let today = new Date();
+    let { data, displayColumns, columnData, rowData, id, updateTable } = req.body;
     const created_at = common.getDateStr(today.getFullYear(), today.getMonth() + 1, today.getDate());
     let user_id = 1;
 
-    let sql = sprintfJs.sprintf("INSERT INTO `%s` SET ?", config.dbTblName.fields);
-    req.body.created_at = created_at;
-    req.body.updated_at = created_at;
-    req.body.user_id = user_id;
-    if (req.body.is_allcategories == 0) {
-        req.body.category_id = 0;
+    data.updated_at = created_at;
+    data.user_id = user_id;
+    if (data.is_allcategories == 0) {
+        data.category_id = 0;
     } else {
-        req.body.category_id = req.body.category_id.join();
+        data.category_id = data.category_id.join();
+    }
+
+    let isTable = false;
+    if (data.field_type == 'table' && displayColumns && displayColumns.length > 2) {
+        if (method == 'POST') {
+            isTable = true;
+        } else {
+            isTable = true;
+        }
+        data.display_columns = displayColumns.join();
+    }
+
+    let sql = "";
+    if (method == 'POST') {
+        data.created_at = created_at;
+        sql = sprintfJs.sprintf("INSERT INTO `%s` SET ?", config.dbTblName.fields);
+    } else {
+        sql = sprintfJs.sprintf( "UPDATE `%s` SET ? WHERE ?", config.dbTblName.fields );
+        if (!id) {
+            res.status(200).send({
+                result: 'error',
+                message: 'empty ID'
+            });
+            return;
+        }
+        data = [data, {id : id}];
     }
 
     try {
 
-        dbConn.query(sql, req.body, (error, results, fields) => {
-            if (error) {
-                res.status(200).send({
-                    result: 'error',
-                    message: 'Unknown error',
-                    error: error,
+        let result = await db.query(sql, data);
+        let msg = 'Successfully saved.';
+        if (method == 'POST') {
+            id = result['insertId'];
+        }
+        if (isTable) {
+            let column_data = [];
+            let row_data = [];
+ 
+            Object.keys(columnData).forEach(key=>{
+                if (displayColumns.indexOf(key) > -1) {
+                    column_data.push([id, key, columnData[key]['title'], columnData[key]['type'], columnData[key]['is_editable']]);
+                }
+            });
+            rowData.map((ele, ind) => {
+                Object.keys(ele).forEach(key=>{
+                    if (displayColumns.indexOf(key) > -1) {
+                        row_data.push([id, ind, key, ele[key]]);
+                    }
                 });
-            } else {
-                let msg = 'Successfully saved.';
-                
-                res.status(200).send({
-                    result: 'success',
-                    message: msg,
-                    data: []
-                });
-            }
-        });
+            });
+            
+            sql = sprintfJs.sprintf("DELETE FROM `%s` WHERE `field_id` = '%d';", config.dbTblName.field_table_columns, id);
+            await db.query(sql, null);
+            sql = sprintfJs.sprintf("DELETE FROM `%s` WHERE `field_id` = '%d';", config.dbTblName.field_table_data, id);
+            await db.query(sql, null);
+
+            sql = sprintfJs.sprintf("INSERT INTO `%s`(`field_id`, `col`, `title`, `type`, `is_editable`) VALUES ?", config.dbTblName.field_table_columns);
+            await db.query(sql, [column_data]);
+
+            sql = sprintfJs.sprintf("INSERT INTO `%s`(`field_id`, `row`, `col`, `val`) VALUES ?", config.dbTblName.field_table_data);
+            await db.query(sql, [row_data]);
+            
+            res.status(200).send({
+                result: 'success',
+                message: msg,
+                data: []
+            });
+
+        } else {
+            res.status(200).send({
+                result: 'success',
+                message: msg,
+                data: []
+            });
+        }
     } catch (err) {
         res.status(200).send({
             result: 'error',
@@ -173,7 +296,7 @@ const updateProc = (req, res, next) => {
             result: 'error',
             message: 'empty ID'
         });
-        return
+        return;
     }
 
     let today = new Date();
@@ -186,7 +309,7 @@ const updateProc = (req, res, next) => {
         req.body.category_id = req.body.category_id.join();
     }
 
-    let sql = sprintfJs.sprintf( "UPDATE `%s` SET ? WHERE ?", config.dbTblName.fields );
+    
 
     dbConn.query(sql, [req.body, condition], (error, results, fields) => {
         if (error) {
@@ -231,11 +354,10 @@ const copyProc = async (req, res, next) => {
     const params = req.body;
     const ids = params.ids;
     if (!ids || ids.length == 0) {
-        res.status(200).send({
+        return res.status(200).send({
             result: 'error',
             message: 'There is no selected ID'
         });
-        return;
     }
 
     let today = new Date();
@@ -273,11 +395,10 @@ const deleteProc = (req, res, next) => {
     const params = req.body;
     const ids = params.ids;
     if (!ids || ids.length == 0) {
-        res.status(200).send({
+        return res.status(200).send({
             result: 'error',
             message: 'There is no selected ID'
         });
-        return;
     }
 
     let sql = sprintfJs.sprintf("UPDATE `%s` SET is_deleted = 1 WHERE `id` in (?);", config.dbTblName.fields);
@@ -297,13 +418,11 @@ const deleteProc = (req, res, next) => {
     });
 }
 
-
-
 router.get('/', indexProc);
 router.post('/add', addProc);
 router.post('/copy', copyProc);
 router.get('/list', listProc);
-router.put('/update', updateProc);
+router.put('/update', addProc);
 router.delete('/delete', deleteProc);
 
 export default router;

@@ -40,7 +40,9 @@ export const dbTblName = {
     categories: process.env.DBTBLNAME_CATEGORIES,
     tabs: process.env.DBTBLNAME_TABS,
     fields: process.env.DBTBLNAME_FIELDS,
-    content_blocks: process.env.DBTBLNAME_CONTENT_BLOCKS
+    content_blocks: process.env.DBTBLNAME_CONTENT_BLOCKS,
+    field_table_columns: process.env.DBTBLNAME_FIELD_TABLE_COLUMNS,
+    field_table_data: process.env.DBTBLNAME_FIELD_TABLE_DATA
 };
 
 export default {
