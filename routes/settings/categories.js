@@ -12,11 +12,11 @@ const indexProc = (req, res, next) => {
 
     let sql = "";
     sql = sprintfJs.sprintf("SELECT A.*, (SELECT category FROM `%s` B WHERE A.`parent_id` = B.`id`) AS parent_cate, S.`season` AS season_name " + 
-        "FROM `%s` A, `%s` S WHERE A.`season_id` = S.`id`", config.dbTblName.categories, config.dbTblName.categories, config.dbTblName.seasons);
+        "FROM `%s` A LEFT JOIN `%s` S ON A.`season_id` = S.`id` ", config.dbTblName.categories, config.dbTblName.categories, config.dbTblName.seasons);
 
     const filterStr = common.getFilter(params, 'category', 'A');
     if (filterStr) {
-        sql += sprintfJs.sprintf(" AND %s ORDER BY `id` DESC;", filterStr);
+        sql += sprintfJs.sprintf("WHERE %s ORDER BY `id` DESC;", filterStr);
     } else {
         sql += " ORDER BY `id` DESC;";
     }
@@ -224,10 +224,10 @@ const updateProc = (req, res, next) => {
 
 const listProc = (req, res, next) => {
     
-    let sql = sprintfJs.sprintf("SELECT `id`, `category`, `parent_id`, `status` FROM `%s` WHERE `is_deleted` = 0;", config.dbTblName.categories);
+    let sql = sprintfJs.sprintf("SELECT `id`, `category`, `parent_id`, `status`, `season_id` FROM `%s` WHERE `is_deleted` = 0;", config.dbTblName.categories);
     let del  = req.query.del;
     if (+del) {
-        sql = sprintfJs.sprintf("SELECT `id`, `category`, `parent_id`, `status` FROM `%s` WHERE `is_deleted` = %s;", config.dbTblName.categories, +del);
+        sql = sprintfJs.sprintf("SELECT `id`, `category`, `parent_id`, `status`, `season_id` FROM `%s` WHERE `is_deleted` = %s;", config.dbTblName.categories, +del);
     }
     dbConn.query(sql, null, (error, results, fields) => {
         if (error) {

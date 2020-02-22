@@ -216,10 +216,13 @@ const updateProc = (req, res, next) => {
 
 const listProc = (req, res, next) => {
 
-    let sql = sprintfJs.sprintf("SELECT `id`, `name` FROM `%s` WHERE `is_deleted` = 0;", config.dbTblName.tabs);
+    let sql = sprintfJs.sprintf("SELECT `id`, `name`, `season_id`, `category_id`, `type` FROM `%s` WHERE `is_deleted` = 0;", config.dbTblName.tabs);
     let del  = req.query.del;
     if (+del) {
-        sql = sprintfJs.sprintf("SELECT `id`, `name` FROM `%s` WHERE `is_deleted` = %s;", config.dbTblName.tabs, +del);
+        sql = sprintfJs.sprintf("SELECT `id`, `name`, `season_id`, `category_id`, `type` FROM `%s` WHERE `is_deleted` = %s;", config.dbTblName.tabs, +del);
+    }
+    if (req.query.season) {
+        sql = sprintfJs.sprintf("SELECT `id`, `name`, `season_id`, `category_id`, `type` FROM `%s` WHERE `season_id` = %s;", config.dbTblName.tabs, req.query.season);
     }
     dbConn.query(sql, null, (error, results, fields) => {
         if (error) {

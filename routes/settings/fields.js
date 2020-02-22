@@ -209,11 +209,12 @@ const addProc = async (req, res, next) => {
 
     let isTable = false;
     if (data.field_type == 'table' && displayColumns && displayColumns.length > 2) {
-        if (method == 'POST') {
-            isTable = true;
-        } else {
-            isTable = true;
-        }
+        // if (method == 'POST') {
+        //     isTable = true;
+        // } else {
+        //     isTable = true;
+        // }
+        isTable = true;
         data.display_columns = displayColumns.join();
     }
 
