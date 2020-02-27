@@ -23,6 +23,18 @@ const getFilter = (params, keyField, alias = '') => {
         filters.push(sprintfJs.sprintf("%s`is_deleted`='%s'", alias, params.del));
     }
 
+    if (params.archive) { // is_archived filter. 0: no archived, 1: archived
+        filters.push(sprintfJs.sprintf("%s`is_archived`='%s'", alias, params.archive));
+    }
+
+    if (params.user) { // by user filter.
+        filters.push(sprintfJs.sprintf("%s`user_id`='%s'", alias, params.user));
+    }
+
+    if (params.entrant) { // by entrant filter.
+        filters.push(sprintfJs.sprintf("%s`entrant_id`='%s'", alias, params.entrant));
+    }
+
     if (params.key) { // keyword filter
         const keyword = '%' + params.key + '%';
         filters.push(sprintfJs.sprintf("%s`%s` LIKE '%s'", alias, keyField, keyword));

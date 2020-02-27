@@ -6,41 +6,143 @@ import sprintfJs from 'sprintf-js';
 import db from '../../core/db';
 
 const router = express.Router();
-const tabs = [
-    {
-    id: 1,
-    title: "Category Tab 1",
-    category_id: [1, 2],
-    category: ["Category1", "Category2"],
-    field_ids: [1, 2, 3],
-    fields: ["checkbox", "checkboxlist", "table"],
-    cb_title: "Team Information1",
-    content: `<p><strong>You are encouraged to credit all members of the team that contributed to this entry.</strong></p>
-                <ol>
-                <li>You may also use this space to credit any contributing organisations.</li>
-                <li>Email addresses are not required but may be used to arrange delivery of award certificates.</li>
-                </ol>`
-    },
-    {
-    id: 2,
-    title: "Category 1",
-    category_id: "0",
-    category: "Category All",
-    field_ids: [1, 2, 3],
-    fields: ["checkbox", "checkboxlist", "table"],
-    cb_title: "Team Information2",
-    content: `<p><strong>You are encouraged to credit all members of the team that contributed to this entry.</strong></p>
-                <ol>
-                <li>Please be sure to spell names correctly and get titles correct. People hate it when their names are misspelt, especially if it appears on an award certificate!</li>
-                <li>Email addresses are not required but may be used to arrange delivery of award certificates.</li>
-                </ol>`
-    }
-];
 const indexProc = (req, res, next) => {
-    const results = tabs;
-    res.status(200).send({
-        result: 'success',
-        data: results
+    const params = req.query;
+
+    let sql = "SELECT A.*, S.`season` as season_name, C.`category`, U.full_name as entrant " + 
+        "FROM `%s` A " + 
+        "LEFT JOIN `%s` S ON A.`season_id` = S.`id` " +
+        "LEFT JOIN `%s` U ON A.`entrant_id` = U.`id` " +
+        "LEFT JOIN `%s` C ON A.`category_id` = C.`id` ";
+    sql = sprintfJs.sprintf(sql, config.dbTblName.entries, config.dbTblName.seasons, config.dbTblName.users, config.dbTblName.categories);
+
+    const filterStr = common.getFilter(params, 'name', 'A');
+    if (filterStr) {
+        sql += sprintfJs.sprintf(" WHERE %s ORDER BY `id` DESC;", filterStr);
+    } else {
+        sql += " ORDER BY `id` DESC;";
+    }
+    let columns = [
+        {
+            'rowField':'select',
+            'tblHeader':'Select',
+            'show':true
+        },
+        {
+            'rowField':'Action',
+            'tblHeader':'Action',
+            'show':true
+        },
+        {
+            'rowField':'id',
+            'tblHeader':'ID',
+            'show':false
+        },
+        {
+            'rowField':'entry_name',
+            'tblHeader':'Entry',
+            'show':true,
+            'router':true,
+            'routerProp':'id'
+        },
+        {
+            'rowField':'entrant',
+            'tblHeader':'Entrant',
+            'show':true,
+            'router':true,
+            'routerProp':'entant_id'
+        },
+        {
+            'rowField':'category',
+            'tblHeader':'Category',
+            'show':true,
+            'router':true,
+            'routerProp':'category_id'
+        },
+        {
+            'rowField':'season_name',
+            'tblHeader':'Season',
+            'show':true,
+            'router':true,
+            'routerProp':'season_id'
+        },
+        {
+            'rowField':'status',
+            'tblHeader':'Status',
+            'show':true
+        },
+        {
+            'rowField':'moderation',
+            'tblHeader':'Moderation',
+            'show':true
+        },
+        {
+            'rowField':'created_at',
+            'tblHeader':'Created',
+            'show':false
+        },
+        {
+            'rowField':'updated_at',
+            'tblHeader':'Updated',
+            'show':false
+        }
+    ];
+
+    dbConn.query(sql, null, (error, results, fields) => {
+        if (error) {
+            res.status(200).send({
+                result: 'error',
+                message: 'Unknown error',
+                error: error,
+                data: [],
+            });
+        } else {
+            // create table structure
+            res.status(200).send({
+                result: 'success',
+                data: results,
+                columns: columns
+            });
+            // sql =  sprintfJs.sprintf("SELECT `id`, `category` FROM `%s`", config.dbTblName.categories);
+            // dbConn.query(sql, null, (error, results1, fields) => {
+            //     if (error) {
+            //         res.status(200).send({
+            //             result: 'error',
+            //             message: 'Unknown error',
+            //             error: error,
+            //             data: [],
+            //         });
+            //     } else {
+
+            //         results.forEach(element => {
+            //             if (element['created_at']) {
+            //                 element['created_at'] = common.getDays(element['created_at']);
+            //             }
+            //             if (element['updated_at']) {
+            //                 element['updated_at'] = common.getDays(element['updated_at']);
+            //             } 
+            //             if (element['is_allcategories'] == 0) {
+            //                 element['category'] = "All categories";
+            //             } else {
+            //                 const ids = element['category_id'].split(",");
+            //                 let arrCate = [];
+            //                 results1.map((e) => {
+            //                     if (ids.indexOf(e['id'] + '') > -1) {
+            //                         arrCate.push(e['category']);
+            //                     }
+            //                 });
+
+            //                 element['category'] = arrCate.join(", ");
+                            
+            //             }
+            //         });
+
+                   
+            //     }
+            // });
+
+
+        }
     });
 };
 
@@ -49,9 +151,9 @@ const saveProc = async (req, res, next) => {
     let tabs = req.body.tabs;
     let isUpdate = false;
     let entry_id = 0;
-    if (details.id) {
+    if (req.body.id) {
         isUpdate = true;
-        entry_id = details.id;
+        entry_id = req.body.id;
     }
 
     let today = new Date();
@@ -72,28 +174,30 @@ const saveProc = async (req, res, next) => {
         let tab_info = [];
         for (let i = 0; i < tabs.length; i ++) {
             let tab = tabs[i];
-            for (let j = 0; j < tab.fields.length; j ++) {
-                let field = tab.fields[j];
-                tab_info.push([entry_id, field.tab_id, field.field_id, field.value]);
-                if (field.field_type == 'table') {
-                    let row_data = [];
-                    const displayColumns = field.table.displayColumns;
-                    const rowData = field.table.rowData;
-                    const field_id = field.field_id;
+            if (tab.fields) {
+                for (let j = 0; j < tab.fields.length; j ++) {
+                    let field = tab.fields[j];
+                    tab_info.push([entry_id, field.tab_id, field.field_id, field.value]);
+                    if (field.field_type == 'table') {
+                        let row_data = [];
+                        const displayColumns = field.table.displayColumns;
+                        const rowData = field.table.rowData;
+                        const field_id = field.field_id;
 
-                    rowData.map((ele, ind) => {
-                        Object.keys(ele).forEach(key=>{
-                            if (displayColumns.indexOf(key) > -1) {
-                                row_data.push([field_id, ind, key, ele[key]]);
-                            }
+                        rowData.map((ele, ind) => {
+                            Object.keys(ele).forEach(key=>{
+                                if (displayColumns.indexOf(key) > -1) {
+                                    row_data.push([field_id, ind, key, ele[key]]);
+                                }
+                            });
                         });
-                    });
-                    
-                    sql = sprintfJs.sprintf("DELETE FROM `%s` WHERE `field_id` = '%d';", config.dbTblName.field_table_data, field_id);
-                    await db.query(sql, null);
+                        
+                        sql = sprintfJs.sprintf("DELETE FROM `%s` WHERE `field_id` = '%d';", config.dbTblName.field_table_data, field_id);
+                        await db.query(sql, null);
 
-                    sql = sprintfJs.sprintf("INSERT INTO `%s`(`field_id`, `row`, `col`, `val`) VALUES ?", config.dbTblName.field_table_data);
-                    await db.query(sql, [row_data]);
+                        sql = sprintfJs.sprintf("INSERT INTO `%s`(`field_id`, `row`, `col`, `val`) VALUES ?", config.dbTblName.field_table_data);
+                        await db.query(sql, [row_data]);
+                    }
                 }
             }
         }
@@ -118,10 +222,66 @@ const saveProc = async (req, res, next) => {
     }
 }
 
-router.get('/', indexProc);
-router.get('/:id', indexProc);
+const moderationProc = (req, res, next) => {
+    let {ids, moderation} = req.body;
+    if (!ids || ids.length == 0) {
+        res.status(200).send({
+            result: 'error',
+            message: 'No Ids'
+        });
+        return;
+    }
+    if (!moderation) moderation = "Undecided";
+
+    let sql = sprintfJs.sprintf("UPDATE `%s` SET moderation = '%s' WHERE `id` in (?);", config.dbTblName.entries, moderation);
+    dbConn.query(sql, [ids], (error, results, fields) => {
+        if (error) {
+            res.status(200).send({
+                result: 'error',
+                message: 'Unknown error',
+                error: error,
+            });
+        } else {
+            res.status(200).send({
+                result: 'success',
+                message: 'Successfully change moderation status',
+            });
+        }
+    });
+}
+
+const archiveProc = (req, res, next) => {
+    let {ids, archived} = req.body;
+    if (!ids || ids.length == 0) {
+        res.status(200).send({
+            result: 'error',
+            message: 'No Ids'
+        });
+        return;
+    }
+    if (!archived) archived = 0;
+
+    let sql = sprintfJs.sprintf("UPDATE `%s` SET `is_archived` = '%s' WHERE `id` in (?);", config.dbTblName.entries, archived);
+    dbConn.query(sql, [ids], (error, results, fields) => {
+        if (error) {
+            res.status(200).send({
+                result: 'error',
+                message: 'Unknown error',
+                error: error,
+            });
+        } else {
+            res.status(200).send({
+                result: 'success',
+                message: 'Successfully changed archive status',
+            });
+        }
+    });
+}
+
+
+router.get('/list', indexProc);
 router.post('/save', saveProc);
-router.post('/save-next', indexProc);
-router.post('/save-close', indexProc);
+router.post('/moderation', moderationProc);
+router.post('/archive', archiveProc);
 
 export default router;

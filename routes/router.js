@@ -2,6 +2,7 @@ import express from 'express';
 import loginRouter from './auth/login';
 import settingRouter from './settings';
 import entryRouter from './entries';
+import basicRouter from './basic';
 import dashboardRouter from './dashboard';
 
 const router = express.Router();
@@ -32,6 +33,7 @@ const router = express.Router();
 // router.use('/settings', requiresLogin, settingRouter);
 router.use('/settings', settingRouter);
 router.use('/entry', entryRouter);
+router.use('/basic', basicRouter);
 
 router.use(function(req, res, next){
     res.status(404);
