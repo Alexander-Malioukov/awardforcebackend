@@ -278,10 +278,72 @@ const archiveProc = (req, res, next) => {
     });
 }
 
+const commentProc = (req, res, next) => {
+    let {id, comment, entry_id} = req.body;
+    if (!entry_id) {
+        res.status(200).send({
+            result: 'error',
+            message: 'No Entry Id'
+        });
+        return;
+    }
+    let today = new Date();
+    const created_at = common.getDateStr(today.getFullYear(), today.getMonth() + 1, today.getDate());
+    let entrant_id = 1;
+
+    let sql = '';
+    if (req.method == 'POST') {
+        sql = sprintfJs.sprintf("INSERT INTO `%s`(`entry_id`, `comment`, `entrant_id`, `created_at`) VALUES ('%s','%s','%s','%s')", 
+            config.dbTblName.entry_comment, entry_id, comment, entrant_id, created_at);
+
+    } else if (req.method == 'PUT') {
+        sql = sprintfJs.sprintf("UPDATE `%s` SET `comment` = '%s' WHERE `id` = '%s';", config.dbTblName.entry_comment, comment, id);
+
+    } else if (req.method == 'DELETE') {
+        sql = sprintfJs.sprintf("DELETE FROM `%s` WHERE `id` = '%d';", config.dbTblName.entry_comment, id);
+    } else {
+        res.status(200).send({
+            result: 'error',
+            message: 'Invalid method'
+        });
+        return;
+    }
+
+    dbConn.query(sql, null, (error, results, fields) => {
+        if (error) {
+            res.status(200).send({
+                result: 'error',
+                message: 'Unknown error',
+                error: error,
+            });
+        } else {
+            sql = sprintfJs.sprintf("SELECT E.*, U.full_name FROM `%s` E, `%s` U WHERE E.`entry_id` = '%s' AND U.`id` = E.`entrant_id` ORDER BY E.`id` DESC;", 
+                config.dbTblName.entry_comment, config.dbTblName.users, entry_id);
+            dbConn.query(sql, null, (error, comments, fields) => {
+                if (error) {
+                    res.status(200).send({
+                        result: 'error',
+                        message: 'Unknown error',
+                        error: error,
+                        data: []
+                    });
+                } else {
+                    res.status(200).send({
+                        result: 'success',
+                        data: comments
+                    });
+                }
+            });
+        }
+    });
+}
 
 router.get('/list', indexProc);
 router.post('/save', saveProc);
 router.post('/moderation', moderationProc);
 router.post('/archive', archiveProc);
+router.post('/comment', commentProc);
+router.put('/comment', commentProc);
+router.delete('/comment', commentProc);
 
 export default router;

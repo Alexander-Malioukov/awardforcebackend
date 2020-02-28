@@ -221,10 +221,25 @@ const detailProc = (req, res, next) => {
                 data: []
             });
         } else {
-            res.status(200).send({
-                result: 'success',
-                data: results
+            sql = sprintfJs.sprintf("SELECT E.*, U.full_name FROM `%s` E, `%s` U WHERE E.`entry_id` = '%s' AND U.`id` = E.`entrant_id` ORDER BY E.`id` DESC;", 
+                config.dbTblName.entry_comment, config.dbTblName.users, entryId);
+            dbConn.query(sql, null, (error, comments, fields) => {
+                if (error) {
+                    res.status(200).send({
+                        result: 'error',
+                        message: 'Unknown error',
+                        error: error,
+                        data: []
+                    });
+                } else {
+                    res.status(200).send({
+                        result: 'success',
+                        data: results,
+                        comments: comments
+                    });
+                }
             });
+            
         }
     });
 }
