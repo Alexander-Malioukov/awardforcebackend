@@ -181,21 +181,21 @@ const saveProc = async (req, res, next) => {
                     if (field.field_type == 'table') {
                         let row_data = [];
                         const displayColumns = field.table.displayColumns;
-                        const rowData = field.table.rowData;
+                        const entryData = field.table.entryData;
                         const field_id = field.field_id;
 
-                        rowData.map((ele, ind) => {
+                        entryData.map((ele, ind) => {
                             Object.keys(ele).forEach(key=>{
                                 if (displayColumns.indexOf(key) > -1) {
-                                    row_data.push([field_id, ind, key, ele[key]]);
+                                    row_data.push([entry_id, field_id, ind, key, ele[key]]);
                                 }
                             });
                         });
                         
-                        sql = sprintfJs.sprintf("DELETE FROM `%s` WHERE `field_id` = '%d';", config.dbTblName.field_table_data, field_id);
+                        sql = sprintfJs.sprintf("DELETE FROM `%s` WHERE `entry_id` = '%d';", config.dbTblName.entry_table, entry_id);
                         await db.query(sql, null);
 
-                        sql = sprintfJs.sprintf("INSERT INTO `%s`(`field_id`, `row`, `col`, `val`) VALUES ?", config.dbTblName.field_table_data);
+                        sql = sprintfJs.sprintf("INSERT INTO `%s`(`entry_id`, `field_id`, `row`, `col`, `val`) VALUES ?", config.dbTblName.entry_table);
                         await db.query(sql, [row_data]);
                     }
                 }

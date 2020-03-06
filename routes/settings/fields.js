@@ -16,6 +16,7 @@ const indexProc = (req, res, next) => {
         { 'rowField': 'resource', 'tblHeader': 'Resource', 'show': true },
         // { 'rowField': 'cate_num', 'tblHeader': 'Categories', 'show': true },
         { 'rowField': 'category', 'tblHeader': 'Categories', 'show': true },
+        { 'rowField': 'tab_name', 'tblHeader': 'Tab', 'show': true },
         { 'rowField': 'registration', 'tblHeader': 'Registration', 'show':false },
         { 'rowField': 'entrant_read_access', 'tblHeader': 'Entrant read access', 'show':false },
         { 'rowField': 'entrant_write_access', 'tblHeader': 'Entrant write access', 'show':false },
@@ -41,11 +42,12 @@ const indexProc = (req, res, next) => {
         { 'rowField': 'option_text', 'tblHeader': 'Option Text', 'show':false }
     ];
 
-    let sql = "SELECT A.*, C.`category` " + 
+    let sql = "SELECT A.*, C.`category`, T.name as tab_name " + 
         "FROM `%s` A " + 
-        "LEFT JOIN `%s` C ON A.`category_id` = C.`id` ";
+        "LEFT JOIN `%s` C ON A.`category_id` = C.`id` " +
+        "LEFT JOIN `%s` T ON A.`tab_id` = T.`id` ";
 
-    sql = sprintfJs.sprintf(sql, config.dbTblName.fields, config.dbTblName.categories);
+    sql = sprintfJs.sprintf(sql, config.dbTblName.fields, config.dbTblName.categories, config.dbTblName.tabs);
 
     const filterStr = common.getFilter(params, 'title', 'A');
     if (filterStr) {
@@ -250,13 +252,24 @@ const addProc = async (req, res, next) => {
                     column_data.push([id, key, columnData[key]['title'], columnData[key]['type'], columnData[key]['is_editable']]);
                 }
             });
+
             rowData.map((ele, ind) => {
                 Object.keys(ele).forEach(key=>{
                     if (displayColumns.indexOf(key) > -1) {
                         row_data.push([id, ind, key, ele[key]]);
                     }
                 });
-            });
+            })
+
+            // const hColumn = common.constant.headerColumn;
+            // rowData.map((ele, ind) => {
+            //     row_data.push([id, ind, hColumn, ele[hColumn]]);
+            //     // Object.keys(ele).forEach(key=>{
+            //     //     if (displayColumns.indexOf(key) > -1) {
+            //     //         row_data.push([id, ind, key, ele[key]]);
+            //     //     }
+            //     // });
+            // });
             
             sql = sprintfJs.sprintf("DELETE FROM `%s` WHERE `field_id` = '%d';", config.dbTblName.field_table_columns, id);
             await db.query(sql, null);

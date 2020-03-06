@@ -78,6 +78,7 @@ const detailTabProc = async (req, res, next) => {
             let ele = results[i];
             let columnData = {};
             let rowData = [];
+            let entryData = [];
             let displayColumns = [];
             if (ele.field_type == 'table') {
                 if (ele['display_columns']) {
@@ -109,12 +110,31 @@ const detailTabProc = async (req, res, next) => {
                         });
                         rowData.push(record);
                     }
+                    if (entry && +entry && +entry > 0) {
+                        sql = sprintfJs.sprintf("SELECT * FROM `%s` WHERE `entry_id` = '%s' ORDER BY `row`", 
+                            config.dbTblName.entry_table, entry);
+                        let results4 = await db.query(sql, null);
+                        if (results4.length > 0) {
+                            let row1 = results4[0]['row'];
+                            let record1 = {};
+                            results4.map((ele1) => {
+                                if (row1 != ele1['row']) {
+                                    row1 = ele1['row'];
+                                    entryData.push(record1);
+                                    record1 = {}
+                                }
+                                record1[ele1['col']] = ele1['val'];
+                            });
+                            entryData.push(record1);
+                        }
+                    }
                 }
             }
             ele['table'] = {
                 displayColumns: displayColumns,
                 columnData: columnData,
-                rowData: rowData
+                rowData: rowData,
+                entryData: entryData
             }
         }
 
@@ -283,6 +303,7 @@ const overviewProc = async (req, res, next) => {
             let ele = results[i];
             let columnData = {};
             let rowData = [];
+            let entryData = [];
             let displayColumns = [];
             if (ele.field_type == 'table') {
                 if (ele['display_columns']) {
@@ -314,12 +335,29 @@ const overviewProc = async (req, res, next) => {
                         });
                         rowData.push(record);
                     }
+                    sql = sprintfJs.sprintf("SELECT * FROM `%s` WHERE `entry_id` = '%s' ORDER BY `row`", 
+                        config.dbTblName.entry_table, entryId);
+                    let results4 = await db.query(sql, null);
+                    if (results4.length > 0) {
+                        let row1 = results4[0]['row'];
+                        let record1 = {};
+                        results4.map((ele1) => {
+                            if (row1 != ele1['row']) {
+                                row1 = ele1['row'];
+                                entryData.push(record1);
+                                record1 = {}
+                            }
+                            record1[ele1['col']] = ele1['val'];
+                        });
+                        entryData.push(record1);
+                    }
                 }
             }
             ele['table'] = {
                 displayColumns: displayColumns,
                 columnData: columnData,
-                rowData: rowData
+                rowData: rowData,
+                entryData: entryData
             }
         }
 
