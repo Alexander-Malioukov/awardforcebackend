@@ -172,6 +172,7 @@ const saveProc = async (req, res, next) => {
         let results = await db.query(sql, details);
         if (!isUpdate) entry_id = results.insertId;
         let tab_info = [];
+        let attaches = [];
         for (let i = 0; i < tabs.length; i ++) {
             let tab = tabs[i];
             if (tab.fields) {
@@ -198,9 +199,22 @@ const saveProc = async (req, res, next) => {
                         sql = sprintfJs.sprintf("INSERT INTO `%s`(`entry_id`, `field_id`, `row`, `col`, `val`) VALUES ?", config.dbTblName.entry_table);
                         await db.query(sql, [row_data]);
                     }
+                    if (field.field_type == 'file' || field.tab_type == 'Attachments') {
+                        
+                        for (let i  = 0; i < field.attachments.length ; i ++) {
+                            const a = field.attachments[i];
+                            attaches.push([entry_id, field.field_id, field.tab_id, a.file, a.value, a.source, a.type]);
+                        }
+                    }
                 }
             }
         }
+        sql = sprintfJs.sprintf("DELETE FROM `%s` WHERE `entry_id` = '%d';", config.dbTblName.entry_attachments, entry_id);
+        await db.query(sql, null);
+
+        sql = sprintfJs.sprintf("INSERT INTO `%s`(`entry_id`, `field_id`, `tab_id`, `file`, `value`, `source`, `type`) VALUES ?", config.dbTblName.entry_attachments);
+        await db.query(sql, [attaches]);
+
         if (isUpdate) {
             sql = sprintfJs.sprintf("DELETE FROM `%s` WHERE `entry_id` = '%d';", config.dbTblName.entry_tab_field, entry_id);
             await db.query(sql, null);

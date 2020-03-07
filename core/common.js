@@ -76,9 +76,14 @@ const getDateStr = (yyyy, mm, dd) => {
     return strDate;
 }
 
+const constant = {
+    headerColumn: 'col1'
+}
+
 export default {
     getFilter,
     getPagination,
     getDays,
-    getDateStr
+    getDateStr,
+    constant
 }

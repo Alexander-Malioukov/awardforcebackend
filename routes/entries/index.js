@@ -35,12 +35,14 @@ const detailTabProc = async (req, res, next) => {
                 F.min_words,
                 F.max_file_size,
                 F.display_columns,
+                T.type as tab_type,
                 ETF.entry_id,
                 ETF.value
             FROM %s F
+            LEFT JOIN %s T ON T.id = F.tab_id
             LEFT JOIN %s ETF ON ETF.entry_id = '%s' AND ETF.tab_id = F.tab_id AND ETF.field_id = F.id
             WHERE F.tab_id = '%s' AND F.season_id = '%s';`;
-        sql = sprintfJs.sprintf(sql, config.dbTblName.fields, config.dbTblName.entry_tab_field, entry, tab, season);
+        sql = sprintfJs.sprintf(sql, config.dbTblName.fields, config.dbTblName.tabs, config.dbTblName.entry_tab_field, entry, tab, season);
 
     } else if (entry && +entry && +entry > 0) {
         sql = `
@@ -57,11 +59,12 @@ const detailTabProc = async (req, res, next) => {
                 F.min_words,
                 F.max_file_size,
                 F.display_columns,
+                T.type as tab_type,
                 ETF.entry_id,
                 ETF.value
-            FROM %s F, %s ETF 
-            WHERE ETF.entry_id = '%s' AND ETF.tab_id = F.tab_id AND ETF.field_id = F.id AND F.tab_id = '%s';`;
-        sql = sprintfJs.sprintf(sql, config.dbTblName.fields, config.dbTblName.entry_tab_field, entry, tab);
+            FROM %s F, %s ETF, %s T
+            WHERE ETF.entry_id = '%s' AND ETF.tab_id = F.tab_id AND ETF.field_id = F.id AND T.id = ETF.tab_id AND F.tab_id = '%s';`;
+        sql = sprintfJs.sprintf(sql, config.dbTblName.fields, config.dbTblName.entry_tab_field, config.dbTblName.tabs, entry, tab);
 
     } else {
         res.status(200).send({
@@ -80,6 +83,7 @@ const detailTabProc = async (req, res, next) => {
             let rowData = [];
             let entryData = [];
             let displayColumns = [];
+            let attachments = [];
             if (ele.field_type == 'table') {
                 if (ele['display_columns']) {
                     displayColumns = ele['display_columns'].split(",");
@@ -130,12 +134,22 @@ const detailTabProc = async (req, res, next) => {
                     }
                 }
             }
+            
+            if (ele.tab_type == 'Attachments' || ele.field_type == 'file') {
+                if (entry && +entry && +entry > 0) {
+                    sql = sprintfJs.sprintf("SELECT * FROM `%s` WHERE `entry_id` = '%s' AND `field_id` = '%s' AND `tab_id` = '%s';", 
+                        config.dbTblName.entry_attachments, entry, ele.field_id, ele.tab_id);
+                    attachments = await db.query(sql, null);
+                }
+            }
+            
             ele['table'] = {
                 displayColumns: displayColumns,
                 columnData: columnData,
                 rowData: rowData,
                 entryData: entryData
             }
+            ele['attachments'] = attachments;
         }
 
         let details = [];
